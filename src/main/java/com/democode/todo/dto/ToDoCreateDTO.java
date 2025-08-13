@@ -1,5 +1,5 @@
 package com.democode.todo.dto;
-import ch.qos.logback.core.status.Status;
+import com.democode.todo.entity.Status;
 import lombok.Data;
 
 @Data
