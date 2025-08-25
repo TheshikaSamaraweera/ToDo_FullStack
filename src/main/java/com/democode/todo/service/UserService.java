@@ -7,6 +7,7 @@ import com.democode.todo.entity.Users;
 import com.democode.todo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,11 +18,13 @@ public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+    @Autowired
+    private BCryptPasswordEncoder passwordEncoder;
 
     public UserResponseDTO createUser(UserCreateDTO createDTO) {
         Users user = new Users();
         user.setUsername(createDTO.getUsername());
-        user.setPassword(createDTO.getPassword()); // In real app, encode this
+        user.setPassword(passwordEncoder.encode(createDTO.getPassword())); // encode the password
         user.setEmail(createDTO.getEmail());
         user.setRole(createDTO.getRole());
 
@@ -58,7 +61,7 @@ public class UserService {
             user.setEmail(updateDTO.getEmail());
             user.setRole(updateDTO.getRole());
             if (updateDTO.getPassword() != null && !updateDTO.getPassword().isEmpty()) {
-                user.setPassword(updateDTO.getPassword());
+                user.setPassword(passwordEncoder.encode(updateDTO.getPassword())); //encode the password
             }
             Users savedUser = userRepository.save(user);
             return convertToResponseDTO(savedUser);
