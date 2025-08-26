@@ -7,6 +7,7 @@ import com.democode.todo.service.NotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -14,12 +15,14 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/notifications")
+@PreAuthorize("hasAnyRole('TEACHER', 'STUDENT')")
 public class NotificationController {
 
     @Autowired
     private NotificationService notificationService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('TEACHER')")
     public ResponseEntity<NotificationResponseDTO> createNotification(
             @RequestBody NotificationCreateDTO createDTO,
             @RequestHeader("Created-By") String createdBy) {
@@ -28,6 +31,7 @@ public class NotificationController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('TEACHER', 'STUDENT')")
     public ResponseEntity<List<NotificationResponseDTO>> getAllNotifications() {
         List<NotificationResponseDTO> notifications = notificationService.getAllNotifications();
         return ResponseEntity.ok(notifications);

@@ -8,6 +8,7 @@ import com.democode.todo.service.TodoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,12 +16,14 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/todos")
+@PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN')")
 public class TodoController {
 
     @Autowired
     private TodoService todoService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('STUDENT', 'TEACHER', 'ADMIN')")
     public ResponseEntity<ToDoResponseDTO> createTodo(@RequestBody ToDoCreateDTO createDTO,
                                                       @RequestHeader("Created-By") String createdBy) {
         ToDoResponseDTO createdTodo = todoService.createTodo(createDTO, createdBy);
@@ -28,6 +31,7 @@ public class TodoController {
     }
 
     @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<ToDoResponseDTO>> getAllTodos() {
         List<ToDoResponseDTO> todos = todoService.getAllTodos();
         return ResponseEntity.ok(todos);
@@ -41,6 +45,7 @@ public class TodoController {
     }
 
     @GetMapping("/user/{username}")
+    @PreAuthorize("hasRole('ADMIN') or authentication.name == #username") // Admin or owner
     public ResponseEntity<List<ToDoResponseDTO>> getTodosByUser(@PathVariable String username) {
         List<ToDoResponseDTO> todos = todoService.getTodosByUser(username);
         return ResponseEntity.ok(todos);
@@ -77,6 +82,7 @@ public class TodoController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteTodo(@PathVariable Long id) {
         boolean deleted = todoService.deleteTodo(id);
         if (deleted) {
