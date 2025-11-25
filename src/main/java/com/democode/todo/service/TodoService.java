@@ -5,6 +5,7 @@ import com.democode.todo.dto.ToDoResponseDTO;
 import com.democode.todo.dto.ToDoUpdateDTO;
 import com.democode.todo.entity.Status;
 import com.democode.todo.entity.TodoList;
+import com.democode.todo.exception.TodoNotFoundException;
 import com.democode.todo.repository.TodoListRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -36,7 +37,7 @@ public class TodoService {
                 .collect(Collectors.toList());
     }
 
-    public Optional<ToDoResponseDTO> getTodoById(Long id) {
+    public Optional<ToDoResponseDTO> getTodoById(Long id){
         return todoRepository.findById(id)
                 .map(this::convertToResponseDTO);
     }
@@ -66,8 +67,8 @@ public class TodoService {
     }
 
     public ToDoResponseDTO updateTodo(Long id, ToDoUpdateDTO updateDTO) {
-        TodoList todo = todoRepository.findById(id).orElse(null);
-        if (todo != null) {
+        TodoList todo = todoRepository.findById(id).orElseThrow(() -> new TodoNotFoundException("Todo with ID " + id + " not found"));
+
             if (updateDTO.getTitle() != null) {
                 todo.setTitle(updateDTO.getTitle());
             }
@@ -80,16 +81,14 @@ public class TodoService {
             TodoList savedTodo = todoRepository.save(todo);
             return convertToResponseDTO(savedTodo);
         }
-        return null;
-    }
 
     public boolean deleteTodo(Long id) {
         if (todoRepository.existsById(id)) {
+            throw new TodoNotFoundException("Todo With ID" + id + "Not Found");
+        }
             todoRepository.deleteById(id);
             return true;
         }
-        return false;
-    }
 
     private ToDoResponseDTO convertToResponseDTO(TodoList todo) {
         ToDoResponseDTO dto = new ToDoResponseDTO();
