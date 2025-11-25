@@ -18,7 +18,8 @@ pipeline {
                 echo 'STAGE 2: BUILD'
                 echo 'Building the project using Gradle...'
 
-                bat 'gradlew.bat clean build -x test'
+                sh 'chmod +x gradlew'  // Make gradlew executable
+                sh './gradlew clean build -x test'
 
                 echo 'Build completed successfully!'
             }
@@ -30,7 +31,7 @@ pipeline {
                 echo 'STAGE 3: TEST'
                 echo 'Running unit tests...'
 
-                bat 'gradlew.bat test'
+                sh './gradlew test'
 
                 echo 'Tests completed!'
             }
@@ -54,7 +55,7 @@ pipeline {
 
         failure {
 
-            echo '❌ PIPELINE FAILED!'
+            echo 'PIPELINE FAILED!'
             echo 'Check the logs above to see what went wrong.'
         }
     }
