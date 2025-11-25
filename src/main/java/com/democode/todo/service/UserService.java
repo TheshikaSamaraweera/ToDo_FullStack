@@ -3,7 +3,7 @@ package com.democode.todo.service;
 import com.democode.todo.dto.UserCreateDTO;
 import com.democode.todo.dto.UserResponseDTO;
 import com.democode.todo.entity.Role;
-import com.democode.todo.entity.Users;
+import com.democode.todo.entity.User;
 import com.democode.todo.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,13 +22,13 @@ public class UserService {
     private BCryptPasswordEncoder passwordEncoder;
 
     public UserResponseDTO createUser(UserCreateDTO createDTO) {
-        Users user = new Users();
+        User user = new User();
         user.setUsername(createDTO.getUsername());
         user.setPassword(passwordEncoder.encode(createDTO.getPassword())); // encode the password
         user.setEmail(createDTO.getEmail());
         user.setRole(createDTO.getRole());
 
-        Users savedUser = userRepository.save(user);
+        User savedUser = userRepository.save(user);
         return convertToResponseDTO(savedUser);
     }
 
@@ -55,7 +55,7 @@ public class UserService {
     }
 
     public UserResponseDTO updateUser(Long id, UserCreateDTO updateDTO) {
-        Users user = userRepository.findById(id).orElse(null);
+        User user = userRepository.findById(id).orElse(null);
         if (user != null) {
             user.setUsername(updateDTO.getUsername());
             user.setEmail(updateDTO.getEmail());
@@ -63,7 +63,7 @@ public class UserService {
             if (updateDTO.getPassword() != null && !updateDTO.getPassword().isEmpty()) {
                 user.setPassword(passwordEncoder.encode(updateDTO.getPassword())); //encode the password
             }
-            Users savedUser = userRepository.save(user);
+            User savedUser = userRepository.save(user);
             return convertToResponseDTO(savedUser);
         }
         return null;
@@ -85,7 +85,7 @@ public class UserService {
         return userRepository.existsByEmail(email);
     }
 
-    private UserResponseDTO convertToResponseDTO(Users user) {
+    private UserResponseDTO convertToResponseDTO(User user) {
         UserResponseDTO dto = new UserResponseDTO();
         dto.setId(user.getId());
         dto.setUsername(user.getUsername());
