@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+    // Use Docker as a tool
+    tools {
+        dockerTool 'docker'
+    }
+
     stages {
         // Stage 1: Checkout code from GitHub
         stage('Checkout') {
@@ -32,55 +37,40 @@ pipeline {
                 echo 'Starting PostgreSQL container for testing...'
 
                 script {
-                    // Remove any existing test database container
-                    sh '''
-                        docker stop postgres || true
-                        docker rm postgres || true
-                    '''
+                    // Use Docker Pipeline plugin syntax
+                    docker.image('postgres:15-alpine').withRun(
+                        '-e POSTGRES_DB=todos ' +
+                        '-e POSTGRES_USER=postgres ' +
+                        '-e POSTGRES_PASSWORD=postgres ' +
+                        '-p 5432:5432'
+                    ) { c ->
 
-                    // Start PostgreSQL container
-                    sh '''
-                        docker run -d \
-                            --name postgres \
-                            -e POSTGRES_DB=todos \
-                            -e POSTGRES_USER=postgres \
-                            -e POSTGRES_PASSWORD=postgres \
-                            -p 5432:5432 \
-                            postgres:15-alpine
-                    '''
+                        echo '⏳ Waiting for PostgreSQL to be ready...'
 
-                    // Wait for PostgreSQL to be ready
-                    echo 'Waiting for PostgreSQL to be ready...'
-                    sh '''
-                        echo "Waiting for PostgreSQL to start..."
-                        sleep 10
+                        // Wait for database to be ready
+                        sh """
+                            sleep 10
+                            for i in \$(seq 1 30); do
+                                if docker exec ${c.id} pg_isready -U postgres > /dev/null 2>&1; then
+                                    echo '✅ PostgreSQL is ready!'
+                                    exit 0
+                                fi
+                                echo '⏳ Waiting for PostgreSQL... (\$i/30)'
+                                sleep 2
+                            done
+                            echo '❌ PostgreSQL failed to start!'
+                            exit 1
+                        """
 
-                        for i in $(seq 1 30); do
-                            if docker exec postgres pg_isready -U postgres > /dev/null 2>&1; then
-                                echo " PostgreSQL is ready!"
-                                exit 0
-                            fi
-                            echo "Waiting for PostgreSQL... ($i/30)"
-                            sleep 2
-                        done
-                        echo "PostgreSQL failed to start!"
-                        exit 1
-                    '''
+                        echo '✅ PostgreSQL container is running!'
+
+                        // Run tests while database is running
+                        echo '===== RUNNING TESTS WITH DATABASE ====='
+                        sh './gradlew test'
+                        echo '✅ Tests completed!'
+                    }
+                    // Container automatically stops and removes after this block
                 }
-
-                echo 'PostgreSQL is ready for testing!'
-            }
-        }
-
-        // Stage 3: Run tests
-        stage('Test') {
-            steps {
-                echo 'STAGE 3: TEST'
-                echo 'Running unit tests...'
-
-                sh './gradlew test'
-
-                echo 'Tests completed!'
             }
             post {
                 always {
@@ -92,19 +82,7 @@ pipeline {
         }
     }
 
-    // What happens after pipeline finishes
     post {
-        always {
-            echo 'Cleaning up...'
-            script {
-                sh '''
-                    docker stop postgres-test || true
-                    docker rm postgres-test || true
-                '''
-            }
-            echo '✅ Cleanup completed!'
-        }
-
         success {
             echo 'PIPELINE SUCCEEDED!'
             echo 'Build Number: ${BUILD_NUMBER}'
