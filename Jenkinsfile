@@ -32,24 +32,33 @@ pipeline {
                 echo 'Starting PostgreSQL container for testing...'
 
                 script {
-                    // Update application properties to use host.docker.internal
+                    // Update application properties to use postgres container name
                     sh '''
-                        # Backup original application.properties
+                        # Backup original
                         cp src/main/resources/application.properties src/main/resources/application.properties.bak
 
-                        # Update database host for Jenkins environment
-                        sed -i 's|localhost|host.docker.internal|g' src/main/resources/application.properties || true
+                        # Replace localhost with postgres container name (from docker-compose)
+                        sed -i 's|localhost:5432|postgres:5432|g' src/main/resources/application.properties
+
+                        # Verify change
+                        echo "📝 Updated database URL:"
+                        grep "spring.datasource.url" src/main/resources/application.properties
                     '''
 
                     try {
                         // Run tests
-                        sh './gradlew test'
+                        echo '🧪 Running Gradle tests...'
+                        sh './gradlew test --info'
                         echo '✅ All tests passed!'
+                    } catch (Exception e) {
+                        echo "❌ Tests failed: ${e.message}"
+                        throw e
                     } finally {
-                        // Restore original application.properties
+                        // Always restore original
                         sh '''
                             if [ -f src/main/resources/application.properties.bak ]; then
                                 mv src/main/resources/application.properties.bak src/main/resources/application.properties
+                                echo "✅ Restored original application.properties"
                             fi
                         '''
                     }
@@ -94,6 +103,10 @@ pipeline {
                     echo ""
                     echo "✅ JAR file details:"
                     file build/libs/*.jar
+
+                    echo ""
+                    echo "📏 JAR file size:"
+                    du -h build/libs/*.jar
                 '''
 
                 echo '✅ Verification complete!'
@@ -103,15 +116,43 @@ pipeline {
 
     post {
         success {
-            echo 'PIPELINE SUCCEEDED!'
-            echo 'Build Number: ${BUILD_NUMBER}'
-            echo 'All stages completed successfully!'
+            echo '=========================================='
+            echo '🎉 PIPELINE SUCCEEDED!'
+            echo '=========================================='
+            echo "📦 Build Number: #${BUILD_NUMBER}"
+            echo "⏱️  Duration: ${currentBuild.durationString.replace(' and counting', '')}"
+            echo ''
+            echo '✅ Completed Stages:'
+            echo '   ✓ Code checked out from GitHub'
+            echo '   ✓ Project compiled successfully'
+            echo '   ✓ Tests passed with PostgreSQL database'
+            echo '   ✓ JAR artifact created and archived'
+            echo '   ✓ Build artifacts verified'
+            echo ''
+            echo '📁 Download JAR from "Artifacts" section above'
+            echo '🚀 Ready for Docker containerization & deployment!'
+            echo ''
+            echo '📊 Test Results: Check "Test Result" link above'
         }
 
         failure {
+            echo '=========================================='
+            echo '❌ PIPELINE FAILED!'
+            echo '=========================================='
+            echo 'Check console output above for error details'
+            echo ''
+            echo '🔍 Common issues:'
+            echo '   - Database connection: Check PostgreSQL container'
+            echo '   - Network: Verify jenkins-network configuration'
+            echo '   - Tests: Review test logs above'
+        }
 
-            echo 'PIPELINE FAILED!'
-            echo 'Check the logs above to see what went wrong.'
+        always {
+            echo ''
+            echo '📊 Build Summary:'
+            echo "   Result: ${currentBuild.result ?: 'SUCCESS'}"
+            echo "   Duration: ${currentBuild.durationString.replace(' and counting', '')}"
+            echo "   Workspace: ${env.WORKSPACE}"
         }
     }
 }
