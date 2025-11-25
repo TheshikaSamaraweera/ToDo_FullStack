@@ -33,14 +33,10 @@ pipeline {
 
                 script {
                     // Stop and remove any existing test database
-                    sh '''
-                        docker-compose -f docker-compose.yml down || true
-                    '''
+                    sh 'docker-compose -f docker-compose.yml down || true'
 
                     // Start PostgreSQL container
-                    sh '''
-                        docker-compose -f docker-compose.yml up -d
-                    '''
+                    sh 'docker-compose -f docker-compose.yml up -d'
 
                     // Wait for PostgreSQL to be ready
                     echo 'Waiting for PostgreSQL to be ready...'
@@ -58,7 +54,7 @@ pipeline {
                     '''
                 }
 
-                echo '✅ PostgreSQL is ready for testing!'
+                echo 'PostgreSQL is ready for testing!'
             }
         }
 
@@ -88,9 +84,7 @@ pipeline {
             echo 'Cleaning up...'
             script {
                 // Stop and remove test database container
-                sh '''
-                    docker-compose -f docker-compose.yml down || true
-                '''
+                sh 'docker-compose -f docker-compose.yml down || true'
             }
         }
 
