@@ -32,18 +32,32 @@ pipeline {
                 echo 'Starting PostgreSQL container for testing...'
 
                 script {
-                    // Stop and remove any existing test database
-                    sh 'docker-compose -f docker-compose.yml down || true'
+                    // Remove any existing test database container
+                    sh '''
+                        docker stop postgres || true
+                        docker rm postgres || true
+                    '''
 
                     // Start PostgreSQL container
-                    sh 'docker-compose -f docker-compose.yml up -d'
+                    sh '''
+                        docker run -d \
+                            --name postgres \
+                            -e POSTGRES_DB=todos \
+                            -e POSTGRES_USER=postgres \
+                            -e POSTGRES_PASSWORD=postgres \
+                            -p 5432:5432 \
+                            postgres:15-alpine
+                    '''
 
                     // Wait for PostgreSQL to be ready
                     echo 'Waiting for PostgreSQL to be ready...'
                     sh '''
-                        for i in {1..30}; do
+                        echo "Waiting for PostgreSQL to start..."
+                        sleep 10
+
+                        for i in $(seq 1 30); do
                             if docker exec postgres pg_isready -U postgres > /dev/null 2>&1; then
-                                echo "PostgreSQL is ready!"
+                                echo " PostgreSQL is ready!"
                                 exit 0
                             fi
                             echo "Waiting for PostgreSQL... ($i/30)"
@@ -83,9 +97,12 @@ pipeline {
         always {
             echo 'Cleaning up...'
             script {
-                // Stop and remove test database container
-                sh 'docker-compose -f docker-compose.yml down || true'
+                sh '''
+                    docker stop postgres-test || true
+                    docker rm postgres-test || true
+                '''
             }
+            echo '✅ Cleanup completed!'
         }
 
         success {
