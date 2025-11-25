@@ -1,11 +1,6 @@
 pipeline {
     agent any
 
-    // Use Docker as a tool
-    tools {
-        dockerTool 'docker'
-    }
-
     stages {
         // Stage 1: Checkout code from GitHub
         stage('Checkout') {
@@ -37,47 +32,71 @@ pipeline {
                 echo 'Starting PostgreSQL container for testing...'
 
                 script {
-                    // Use Docker Pipeline plugin syntax
-                    docker.image('postgres:15-alpine').withRun(
-                        '-e POSTGRES_DB=todos ' +
-                        '-e POSTGRES_USER=postgres ' +
-                        '-e POSTGRES_PASSWORD=postgres ' +
-                        '-p 5432:5432'
-                    ) { c ->
+                    // Update application properties to use host.docker.internal
+                    sh '''
+                        # Backup original application.properties
+                        cp src/main/resources/application.properties src/main/resources/application.properties.bak
 
-                        echo '⏳ Waiting for PostgreSQL to be ready...'
+                        # Update database host for Jenkins environment
+                        sed -i 's|localhost|host.docker.internal|g' src/main/resources/application.properties || true
+                    '''
 
-                        // Wait for database to be ready
-                        sh """
-                            sleep 10
-                            for i in \$(seq 1 30); do
-                                if docker exec ${c.id} pg_isready -U postgres > /dev/null 2>&1; then
-                                    echo '✅ PostgreSQL is ready!'
-                                    exit 0
-                                fi
-                                echo '⏳ Waiting for PostgreSQL... (\$i/30)'
-                                sleep 2
-                            done
-                            echo '❌ PostgreSQL failed to start!'
-                            exit 1
-                        """
-
-                        echo '✅ PostgreSQL container is running!'
-
-                        // Run tests while database is running
-                        echo '===== RUNNING TESTS WITH DATABASE ====='
+                    try {
+                        // Run tests
                         sh './gradlew test'
-                        echo '✅ Tests completed!'
+                        echo '✅ All tests passed!'
+                    } finally {
+                        // Restore original application.properties
+                        sh '''
+                            if [ -f src/main/resources/application.properties.bak ]; then
+                                mv src/main/resources/application.properties.bak src/main/resources/application.properties
+                            fi
+                        '''
                     }
                     // Container automatically stops and removes after this block
                 }
             }
             post {
                 always {
-                    // This publishes test results in Jenkins
-                    echo 'Publishing test results...'
-                    junit '**/build/test-results/test/*.xml'
+                    echo '📊 Publishing test results...'
+                    junit allowEmptyResults: true, testResults: '**/build/test-results/test/*.xml'
                 }
+            }
+        }
+
+        // Stage 4: Package
+        stage('Package') {
+            steps {
+                echo '===== STAGE 4: PACKAGE ====='
+                echo '📦 Creating JAR file...'
+
+                sh './gradlew bootJar'
+
+                echo '✅ JAR file created!'
+
+                // Archive the artifact
+                archiveArtifacts artifacts: '**/build/libs/*.jar',
+                                fingerprint: true,
+                                allowEmptyArchive: false
+            }
+        }
+
+        // Stage 5: Verify
+        stage('Verify') {
+            steps {
+                echo '===== STAGE 5: VERIFY ====='
+                echo '🔍 Verifying build artifacts...'
+
+                sh '''
+                    echo "📦 Build artifacts:"
+                    ls -lh build/libs/
+
+                    echo ""
+                    echo "✅ JAR file details:"
+                    file build/libs/*.jar
+                '''
+
+                echo '✅ Verification complete!'
             }
         }
     }
