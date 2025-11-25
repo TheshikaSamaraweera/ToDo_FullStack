@@ -17,13 +17,13 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'STAGE 2: BUILD'
-                bat 'gradlew.bat clean build -x test'
+                bat 'gradlew.bat clean assemble'   // compile only, no tests
             }
         }
 
-stages {
         stage('Build & Test') {
             steps {
+                echo 'STAGE 3: TEST'
                 withCredentials([usernamePassword(
                     credentialsId: 'POSTGRES_CREDENTIALS',
                     usernameVariable: 'DB_USER',
@@ -34,8 +34,13 @@ stages {
                     set SPRING_DATASOURCE_USERNAME=%DB_USER%
                     set SPRING_DATASOURCE_PASSWORD=%DB_PASS%
 
-                    gradlew.bat clean test
+                    gradlew.bat test
                     """
+                }
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, testResults: '**/build/test-results/test/*.xml'
                 }
             }
         }
@@ -58,10 +63,10 @@ stages {
 
     post {
         success {
-            echo ' Pipeline Success!'
+            echo '🎉 Pipeline Success!'
         }
         failure {
-            echo ' Pipeline Failed!'
+            echo '❌ Pipeline Failed!'
         }
     }
 }
