@@ -6,6 +6,22 @@ pipeline {
     }
 
     stages {
+
+        stage('Checkout') {
+            steps {
+                echo 'STAGE 1: CHECKOUT'
+                checkout scm
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'STAGE 2: BUILD'
+                bat 'gradlew.bat clean build -x test'
+            }
+        }
+
+stages {
         stage('Build & Test') {
             steps {
                 withCredentials([usernamePassword(
@@ -22,6 +38,27 @@ pipeline {
                     """
                 }
             }
+        }
+
+        stage('Package') {
+            steps {
+                echo 'STAGE 4: PACKAGE'
+                bat 'gradlew.bat bootJar'
+                archiveArtifacts artifacts: '**/build/libs/*.jar', fingerprint: true
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                echo 'STAGE 5: VERIFY'
+                bat 'dir build\\libs'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo ' Pipeline Success!'
         }
         failure {
             echo ' Pipeline Failed!'
