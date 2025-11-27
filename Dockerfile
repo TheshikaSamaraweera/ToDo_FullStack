@@ -8,7 +8,7 @@ WORKDIR /app
 COPY build/libs/*.jar todo-0.0.1-SNAPSHOT.jar
 
 # Expose the port your app runs on
-EXPOSE 8081
+EXPOSE 8082
 
 # Command to run your application
 ENTRYPOINT ["java", "-jar", "todo-0.0.1-SNAPSHOT.jar"]

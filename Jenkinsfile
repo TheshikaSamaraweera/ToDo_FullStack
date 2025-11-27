@@ -60,7 +60,7 @@ pipeline {
             }
         }
 
-        // ========== NEW STAGE - JUST BUILD DOCKER IMAGE ==========
+
         stage('Build Docker Image') {
             steps {
                 echo 'STAGE 6: BUILD DOCKER IMAGE'
@@ -71,14 +71,49 @@ pipeline {
             }
         }
 
+
+        stage('Deploy Container') {
+            steps {
+                echo 'STAGE 7: DEPLOY CONTAINER'
+                script {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'POSTGRES_CREDENTIALS',
+                        usernameVariable: 'DB_USER',
+                        passwordVariable: 'DB_PASS'
+                    )]) {
+                        // Stop old container if exists
+                        bat 'docker stop my-todo-app || echo "No container to stop"'
+                        bat 'docker rm my-todo-app || echo "No container to remove"'
+
+                        // Start new container
+                        bat """
+                        docker run -d --name my-todo-app -p 8081:8081 ^
+                          -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/todos ^
+                          -e SPRING_DATASOURCE_USERNAME=%DB_USER% ^
+                          -e SPRING_DATASOURCE_PASSWORD=%DB_PASS% ^
+                          todo-app:latest
+                        """
+
+                        // Wait a bit
+                        sleep 10
+
+                        // Check if it's running
+                        bat 'docker ps | findstr todo-app'
+                    }
+                }
+            }
+        }
+
     }
 
     post {
         success {
-            echo '🎉 Pipeline Success!'
+            echo ' Pipeline Success! App is running at http://localhost:8081'
+            bat 'docker ps | findstr todo-app'
         }
         failure {
-            echo '❌ Pipeline Failed!'
+            echo ' Pipeline Failed!'
+            bat 'docker logs my-todo-app || echo "No logs available"'
         }
     }
 }
