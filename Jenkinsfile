@@ -67,9 +67,10 @@ pipeline {
             steps {
                 echo 'STAGE 6: BUILD DOCKER IMAGE'
                 script {
-                    // Build with Docker Hub username
-                    bat "docker build -t ${DOCKER_IMAGE}:latest ."
+                    // Build with both version tag and latest tag
+                    bat "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} -t ${DOCKER_IMAGE}:latest ."
                     bat "docker images | findstr ${DOCKER_HUB_USERNAME}/todo-app"
+                    echo "✅ Built image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
                 }
             }
         }
@@ -87,13 +88,16 @@ pipeline {
                         // Login to Docker Hub
                         bat 'docker login -u %DOCKER_USER% -p %DOCKER_PASS%'
 
-                        // Push the image
+                        // Push both the versioned tag and latest tag
+                        bat "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
                         bat "docker push ${DOCKER_IMAGE}:latest"
 
                         // Logout
                         bat 'docker logout'
 
-                        echo "✅ Image pushed to: https://hub.docker.com/r/${DOCKER_HUB_USERNAME}/todo-app"
+                        echo "✅ Image pushed: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                        echo "✅ Image pushed: ${DOCKER_IMAGE}:latest"
+                        echo "📦 View at: https://hub.docker.com/r/${DOCKER_HUB_USERNAME}/todo-app"
                     }
                 }
             }
@@ -119,7 +123,7 @@ pipeline {
                           -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/todos ^
                           -e SPRING_DATASOURCE_USERNAME=%DB_USER% ^
                           -e SPRING_DATASOURCE_PASSWORD=%DB_PASS% ^
-                          ${DOCKER_IMAGE}:latest
+                          ${DOCKER_IMAGE}:${IMAGE_TAG}
                         """
 
                         // Wait a bit
@@ -127,6 +131,8 @@ pipeline {
 
                         // Check if it's running
                         bat 'docker ps | findstr todo-app'
+
+                        echo " Deployed version: ${IMAGE_TAG}"
                     }
                 }
             }
