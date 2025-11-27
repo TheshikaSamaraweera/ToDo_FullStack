@@ -59,6 +59,18 @@ pipeline {
                 bat 'dir build\\libs'
             }
         }
+
+        // ========== NEW STAGE - JUST BUILD DOCKER IMAGE ==========
+        stage('Build Docker Image') {
+            steps {
+                echo 'STAGE 6: BUILD DOCKER IMAGE'
+                script {
+                    bat 'docker build -t todo-app:latest .'
+                    bat 'docker images | findstr todo-app'
+                }
+            }
+        }
+
     }
 
     post {
