@@ -74,7 +74,7 @@ pipeline {
             }
         }
 
-        // ========== NEW STAGE - PUSH TO DOCKER HUB ==========
+
         stage('Push to Docker Hub') {
             steps {
                 echo 'STAGE 7: PUSH TO DOCKER HUB'
@@ -98,7 +98,7 @@ pipeline {
                 }
             }
         }
-        // ====================================================
+
 
         stage('Deploy Container') {
             steps {
@@ -141,7 +141,7 @@ pipeline {
         }
         failure {
             echo ' Pipeline Failed!'
-            bat 'docker logs my-todo-app || echo "No logs available"'
+            bat 'docker logs todo-app || echo "No logs available"'
         }
     }
 }
