@@ -82,12 +82,12 @@ pipeline {
                         passwordVariable: 'DB_PASS'
                     )]) {
                         // Stop old container if exists
-                        bat 'docker stop my-todo-app || echo "No container to stop"'
-                        bat 'docker rm my-todo-app || echo "No container to remove"'
+                        bat 'docker stop todo-app || echo "No container to stop"'
+                        bat 'docker rm todo-app || echo "No container to remove"'
 
                         // Start new container
                         bat """
-                        docker run -d --name my-todo-app -p 8081:8081 ^
+                        docker run -d --name todo-app -p 8081:8081 ^
                           -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/todos ^
                           -e SPRING_DATASOURCE_USERNAME=%DB_USER% ^
                           -e SPRING_DATASOURCE_PASSWORD=%DB_PASS% ^
