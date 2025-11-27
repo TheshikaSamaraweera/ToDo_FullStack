@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         SPRING_PROFILES_ACTIVE = "jenkins"
-        DOCKER_HUB_USERNAME = "your-dockerhub-username"
+        DOCKER_HUB_USERNAME = "theshikanavod"
         DOCKER_IMAGE = "${DOCKER_HUB_USERNAME}/todo-app"
     }
 
