@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         SPRING_PROFILES_ACTIVE = "jenkins"
+        DOCKER_HUB_USERNAME = "your-dockerhub-username"
+        DOCKER_IMAGE = "${DOCKER_HUB_USERNAME}/todo-app"
     }
 
     stages {
@@ -65,16 +67,42 @@ pipeline {
             steps {
                 echo 'STAGE 6: BUILD DOCKER IMAGE'
                 script {
-                    bat 'docker build -t todo-app:latest .'
-                    bat 'docker images | findstr todo-app'
+                    // Build with Docker Hub username
+                    bat "docker build -t ${DOCKER_IMAGE}:latest ."
+                    bat "docker images | findstr ${DOCKER_HUB_USERNAME}/todo-app"
                 }
             }
         }
 
+        // ========== NEW STAGE - PUSH TO DOCKER HUB ==========
+        stage('Push to Docker Hub') {
+            steps {
+                echo 'STAGE 7: PUSH TO DOCKER HUB'
+                script {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'DOCKER_HUB_CREDENTIALS',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        // Login to Docker Hub
+                        bat 'docker login -u %DOCKER_USER% -p %DOCKER_PASS%'
+
+                        // Push the image
+                        bat "docker push ${DOCKER_IMAGE}:latest"
+
+                        // Logout
+                        bat 'docker logout'
+
+                        echo "✅ Image pushed to: https://hub.docker.com/r/${DOCKER_HUB_USERNAME}/todo-app"
+                    }
+                }
+            }
+        }
+        // ====================================================
 
         stage('Deploy Container') {
             steps {
-                echo 'STAGE 7: DEPLOY CONTAINER'
+                echo 'STAGE 8: DEPLOY CONTAINER'
                 script {
                     withCredentials([usernamePassword(
                         credentialsId: 'POSTGRES_CREDENTIALS',
@@ -91,7 +119,7 @@ pipeline {
                           -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/todos ^
                           -e SPRING_DATASOURCE_USERNAME=%DB_USER% ^
                           -e SPRING_DATASOURCE_PASSWORD=%DB_PASS% ^
-                          todo-app:latest
+                          ${DOCKER_IMAGE}:latest
                         """
 
                         // Wait a bit
