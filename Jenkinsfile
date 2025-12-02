@@ -47,12 +47,16 @@ pipeline {
 
                     // Run SonarQube analysis
                     withSonarQubeEnv('SonarQube-Local') {
-                        bat """
-                        gradlew.bat sonar ^
-                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
-                        -Dsonar.projectName="Todo Application" ^
-                        -Dsonar.java.binaries=build/classes/java/main
-                        """
+                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                            bat """
+                            gradlew.bat sonar ^
+                            -Dsonar.projectKey=%SONAR_PROJECT_KEY% ^
+                            -Dsonar.projectName="Todo Application" ^
+                            -Dsonar.host.url=%SONAR_HOST_URL% ^
+                            -Dsonar.token=%SONAR_TOKEN% ^
+                            -Dsonar.java.binaries=build/classes/java/main
+                            """
+                        }
                     }
                 }
             }
