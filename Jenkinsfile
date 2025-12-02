@@ -6,6 +6,7 @@ pipeline {
         DOCKER_HUB_USERNAME = "theshikanavod"
         DOCKER_IMAGE = "${DOCKER_HUB_USERNAME}/todo-app"
         IMAGE_TAG = "${BUILD_NUMBER}"
+        SONAR_PROJECT_KEY = "todo-app"
     }
 
     stages {
@@ -20,7 +21,61 @@ pipeline {
         stage('Build') {
             steps {
                 echo 'STAGE 2: BUILD'
-                bat 'gradlew.bat clean assemble'   // compile only, no tests
+                echo '=========================================='
+                bat 'gradlew.bat clean assemble'
+            }
+        }
+
+        stage('Code Quality Analysis') {
+            steps {
+                echo '=========================================='
+                echo 'STAGE 3: SONARQUBE CODE QUALITY ANALYSIS'
+                echo '=========================================='
+                script {
+                    // Run tests and generate coverage report first
+                    withCredentials([usernamePassword(
+                        credentialsId: 'POSTGRES_CREDENTIALS',
+                        usernameVariable: 'DB_USER',
+                        passwordVariable: 'DB_PASS'
+                    )]) {
+                        bat """
+                        set SPRING_DATASOURCE_USERNAME=%DB_USER%
+                        set SPRING_DATASOURCE_PASSWORD=%DB_PASS%
+                        gradlew.bat test jacocoTestReport
+                        """
+                    }
+
+                    // Run SonarQube analysis
+                    withSonarQubeEnv('SonarQube-Local') {
+                        bat """
+                        gradlew.bat sonar ^
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} ^
+                        -Dsonar.projectName="Todo Application" ^
+                        -Dsonar.java.binaries=build/classes/java/main
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                echo '=========================================='
+                echo 'STAGE 4: WAITING FOR SONARQUBE QUALITY GATE'
+                echo '=========================================='
+                script {
+                    timeout(time: 5, unit: 'MINUTES') {
+                        def qg = waitForQualityGate()
+                        if (qg.status != 'OK') {
+                            echo "⚠️ Quality Gate failed: ${qg.status}"
+                            echo "⚠️ Pipeline will continue, but please review SonarQube report"
+                            // Uncomment below to fail the build on Quality Gate failure
+                            // error "Quality Gate failed: ${qg.status}"
+                        } else {
+                            echo "✅ Quality Gate passed!"
+                        }
+                    }
+                }
             }
         }
 
@@ -161,6 +216,7 @@ pipeline {
             echo " Build: #${BUILD_NUMBER}"
             echo " Docker Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
             echo " App running at: http://localhost:8081"
+            echo "📈 SonarQube Report: http://localhost:9000/dashboard?id=${SONAR_PROJECT_KEY}"
             echo '=========================================='
             bat 'docker ps | findstr todo-app'
         }
@@ -170,6 +226,7 @@ pipeline {
             echo '=========================================='
             echo 'Container logs:'
             bat 'docker logs todo-app 2>nul || echo No logs available'
+            echo "📈 Check SonarQube: http://localhost:9000/dashboard?id=${SONAR_PROJECT_KEY}"
         }
         always {
             echo "Pipeline duration: ${currentBuild.durationString}"
