@@ -5,6 +5,7 @@ pipeline {
         SPRING_PROFILES_ACTIVE = "jenkins"
         DOCKER_HUB_USERNAME = "theshikanavod"
         DOCKER_IMAGE = "${DOCKER_HUB_USERNAME}/todo-app"
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -66,11 +67,12 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 echo 'STAGE 6: BUILD DOCKER IMAGE'
+                echo "Building image with tag: ${IMAGE_TAG}"
                 script {
                     // Build with both version tag and latest tag
                     bat "docker build -t ${DOCKER_IMAGE}:${IMAGE_TAG} -t ${DOCKER_IMAGE}:latest ."
                     bat "docker images | findstr ${DOCKER_HUB_USERNAME}/todo-app"
-                    echo "✅ Built image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                    echo " Built image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
                 }
             }
         }
@@ -86,7 +88,7 @@ pipeline {
                         passwordVariable: 'DOCKER_PASS'
                     )]) {
                         // Login to Docker Hub
-                        bat 'docker login -u %DOCKER_USER% -p %DOCKER_PASS%'
+                        bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
 
                         // Push both the versioned tag and latest tag
                         bat "docker push ${DOCKER_IMAGE}:${IMAGE_TAG}"
@@ -95,9 +97,9 @@ pipeline {
                         // Logout
                         bat 'docker logout'
 
-                        echo "✅ Image pushed: ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                        echo "✅ Image pushed: ${DOCKER_IMAGE}:latest"
-                        echo "📦 View at: https://hub.docker.com/r/${DOCKER_HUB_USERNAME}/todo-app"
+                        echo " Image pushed: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                        echo " Image pushed: ${DOCKER_IMAGE}:latest"
+                        echo " View at: https://hub.docker.com/r/${DOCKER_HUB_USERNAME}/todo-app"
                     }
                 }
             }
@@ -114,25 +116,36 @@ pipeline {
                         passwordVariable: 'DB_PASS'
                     )]) {
                         // Stop old container if exists
-                        bat 'docker stop todo-app || echo "No container to stop"'
-                        bat 'docker rm todo-app || echo "No container to remove"'
+                        bat 'docker stop todo-app 2>nul || echo Container not running'
+                        bat 'docker rm todo-app 2>nul || echo No container to remove'
 
                         // Start new container
                         bat """
-                        docker run -d --name todo-app -p 8081:8081 ^
+                        docker run -d ^
+                          --name todo-app ^
+                          -p 8081:8081 ^
                           -e SPRING_DATASOURCE_URL=jdbc:postgresql://host.docker.internal:5432/todos ^
                           -e SPRING_DATASOURCE_USERNAME=%DB_USER% ^
                           -e SPRING_DATASOURCE_PASSWORD=%DB_PASS% ^
                           ${DOCKER_IMAGE}:${IMAGE_TAG}
                         """
 
-                        // Wait a bit
-                        sleep 10
+                        // Wait for container to start
+                        echo '⏳ Waiting for container to start...'
+                        timeout(time: 30, unit: 'SECONDS') {
+                            waitUntil {
+                                script {
+                                    def result = bat(returnStatus: true, script: 'docker ps | findstr todo-app')
+                                    return result == 0
+                                }
+                            }
+                        }
 
                         // Check if it's running
                         bat 'docker ps | findstr todo-app'
 
                         echo " Deployed version: ${IMAGE_TAG}"
+                        echo " Access at: http://localhost:8081"
                     }
                 }
             }
@@ -142,12 +155,24 @@ pipeline {
 
     post {
         success {
-            echo ' Pipeline Success! App is running at http://localhost:8081'
+            echo '=========================================='
+            echo ' PIPELINE SUCCEEDED!'
+            echo '=========================================='
+            echo " Build: #${BUILD_NUMBER}"
+            echo " Docker Image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+            echo " App running at: http://localhost:8081"
+            echo '=========================================='
             bat 'docker ps | findstr todo-app'
         }
         failure {
-            echo ' Pipeline Failed!'
-            bat 'docker logs todo-app || echo "No logs available"'
+            echo '=========================================='
+            echo ' PIPELINE FAILED!'
+            echo '=========================================='
+            echo 'Container logs:'
+            bat 'docker logs todo-app 2>nul || echo No logs available'
+        }
+        always {
+            echo "Pipeline duration: ${currentBuild.durationString}"
         }
     }
 }
