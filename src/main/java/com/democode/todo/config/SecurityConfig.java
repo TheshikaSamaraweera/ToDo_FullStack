@@ -35,12 +35,13 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login").permitAll() // Allow user creation (public registration)
+                        .requestMatchers("/api/auth/login").permitAll() // Allow login
+                        .requestMatchers("/actuator/**").permitAll() // Allow actuator endpoints for monitoring
                         .anyRequest().authenticated() // Secure everything else
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .httpBasic(Customizer.withDefaults()) // ✅ new recommended way
-                .csrf(csrf -> csrf.disable()); // often disabled for APIs
+                .httpBasic(Customizer.withDefaults())
+                .csrf(csrf -> csrf.disable()); // Disabled for APIs
 
         return http.build();
     }
